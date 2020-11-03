@@ -34,6 +34,8 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
         setIssue(issue);
         if (issue) {
             setTitle(issue.title);
+            setDescription(issue.description);
+            setState(issue.state);
         }
     }, [match.params.id, issues]);
     const handleSave = () => {
