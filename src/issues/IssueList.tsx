@@ -25,15 +25,15 @@ const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
         <IonPage>
             <IonHeader>
                 <IonToolbar>
-                    <IonTitle>My App</IonTitle>
+                    <IonTitle>Issues List</IonTitle>
                 </IonToolbar>
             </IonHeader>
             <IonContent>
                 <IonLoading isOpen={fetching} message="Fetching issues" />
                 {issues && (
                     <IonList>
-                        {issues.map(({ id, title, description,state}) =>
-                            <Issue key={id} id={id} title={title} description={description} state={state} onEdit={id => history.push(`/issue/${id}`)} />)}
+                        {issues.map(({ _id, title, description,state}) =>
+                            <Issue key={_id} _id={_id} title={title} description={description} state={state} onEdit={id => history.push(`/issue/${id}`)} />)}
                     </IonList>
                 )}
                 {fetchingError && (

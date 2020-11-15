@@ -1,62 +1,38 @@
 import axios from 'axios';
-import { getLogger } from '../core';
+import { authConfig, baseUrl, getLogger, withLogs } from '../core';
 import { IssueProps } from './IssueProps';
 
 const log = getLogger('issueApi');
 
-const baseUrl = 'localhost:3000';
-const issueUrl = `http://${baseUrl}/issue`;
+const issueUrl = `http://${baseUrl}/api/issue`;
 
-interface ResponseProps<T> {
-    data: T;
+
+export const getIssues: (token: string) => Promise<IssueProps[]> = token => {
+    return withLogs(axios.get(issueUrl, authConfig(token)), 'getIssues');
 }
 
-function withLogs<T>(promise: Promise<ResponseProps<T>>, fnName: string): Promise<T> {
-    log(`${fnName} - started`);
-    return promise
-        .then(res => {
-            log(`${fnName} - succeeded`);
-            return Promise.resolve(res.data);
-        })
-        .catch(err => {
-            log(`${fnName} - failed`);
-            return Promise.reject(err);
-        });
+export const createIssue: (token: string, issue: IssueProps) => Promise<IssueProps[]> = (token, issue) => {
+    return withLogs(axios.post(issueUrl, issue, authConfig(token)), 'createIssue');
 }
 
-const config = {
-    headers: {
-        'Content-Type': 'application/json'
-    }
-};
-
-export const getIssues: () => Promise<IssueProps[]> = () => {
-    return withLogs(axios.get(issueUrl, config), 'getIssues');
+export const updateIssue: (token: string, issue: IssueProps) => Promise<IssueProps[]> = (token, issue) => {
+    return withLogs(axios.put(`${issueUrl}/${issue._id}`, issue, authConfig(token)), 'updateIssue');
 }
 
-export const createIssue: (issue: IssueProps) => Promise<IssueProps[]> = issue => {
-    return withLogs(axios.post(issueUrl, issue, config), 'createIssue');
-}
-
-export const updateIssue: (issue: IssueProps) => Promise<IssueProps[]> = issue => {
-    return withLogs(axios.put(`${issueUrl}/${issue.id}`, issue, config), 'updateIssue');
-}
-
-export const apideleteIssue: (issue: IssueProps) => Promise<IssueProps[]> = issue => {
-    return withLogs(axios.delete(`${issueUrl}/${issue.id}`, config), 'apideleteIssue');
+export const apideleteIssue: (token: string, issue: IssueProps) => Promise<IssueProps[]> = (token, issue) => {
+    return withLogs(axios.delete(`${issueUrl}/${issue._id}`, authConfig(token)), 'apideleteIssue');
 }
 
 interface MessageData {
-    event: string;
-    payload: {
-        issue: IssueProps;
-    };
+    type: string;
+    payload: IssueProps;
 }
 
-export const newWebSocket = (onMessage: (data: MessageData) => void) => {
+export const newWebSocket = (token: string, onMessage: (data: MessageData) => void) => {
     const ws = new WebSocket(`ws://${baseUrl}`)
     ws.onopen = () => {
         log('web socket onopen');
+        ws.send(JSON.stringify({ type: 'authorization', payload: { token } }));
     };
     ws.onclose = () => {
         log('web socket onclose');

@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useReducer } from 'react';
+import React, {useCallback, useContext, useEffect, useReducer} from 'react';
 import PropTypes from 'prop-types';
 import { getLogger } from '../core';
 import { IssueProps } from './IssueProps';
 import {createIssue, apideleteIssue, getIssues, newWebSocket, updateIssue} from './issueApi';
+import { AuthContext } from '../auth';
 
 const log = getLogger('IssueProvider');
 
@@ -56,7 +57,7 @@ const reducer: (state: IssuesState, action: ActionProps) => IssuesState =
             case SAVE_ISSUE_SUCCEEDED:
                 const issues = [...(state.issues || [])];
                 const issue = payload.issue;
-                const index = issues.findIndex(it => it.id === issue.id);
+                const index = issues.findIndex(it => it._id === issue._id);
                 if (index === -1) {
                     issues.splice(0, 0, issue);
                 } else {
@@ -70,7 +71,7 @@ const reducer: (state: IssuesState, action: ActionProps) => IssuesState =
             case DELETE_ISSUE_SUCCEEDED:
                 const initial_issues = [...(state.issues || [])];
                 const deleted_issue = payload.issue;
-                const deleted_index = initial_issues.findIndex(it => it.id === deleted_issue.id);
+                const deleted_index = initial_issues.findIndex(it => it._id === deleted_issue._id);
                 if (deleted_index !== -1) {
                     initial_issues.splice(deleted_index, 1);
                 }
@@ -90,12 +91,13 @@ interface IssueProviderProps {
 }
 
 export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
+    const { token } = useContext(AuthContext);
     const [state, dispatch] = useReducer(reducer, initialState);
     const { issues, fetching, fetchingError, saving, savingError, deleting, deletingError } = state;
-    useEffect(getIssuesEffect, []);
-    useEffect(wsEffect, []);
-    const saveIssue = useCallback<SaveIssueFn>(saveIssueCallback, []);
-    const deleteIssue = useCallback<DeleteIssueFn>(deleteIssueCallback, []);
+    useEffect(getIssuesEffect, [token]);
+    useEffect(wsEffect, [token]);
+    const saveIssue = useCallback<SaveIssueFn>(saveIssueCallback, [token]);
+    const deleteIssue = useCallback<DeleteIssueFn>(deleteIssueCallback, [token]);
     const value = { issues, fetching, fetchingError, saving, savingError, saveIssue, deleting, deletingError, deleteIssue };
     log('returns');
     return (
@@ -112,10 +114,13 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
         }
 
         async function fetchIssues() {
+            if (!token?.trim()) {
+                return;
+            }
             try {
                 log('fetchIssues started');
                 dispatch({ type: FETCH_ISSUES_STARTED });
-                const issues = await getIssues();
+                const issues = await getIssues(token);
                 log('fetchIssues succeeded');
                 if (!canceled) {
                     dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
@@ -131,7 +136,7 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
         try {
             log('saveIssue started');
             dispatch({ type: SAVE_ISSUE_STARTED });
-            const savedIssue = await (issue.id ? updateIssue(issue) : createIssue(issue));
+            const savedIssue = await (issue._id ? updateIssue(token, issue) : createIssue(token, issue));
             log('saveIssue succeeded');
             dispatch({ type: SAVE_ISSUE_SUCCEEDED, payload: { issue: savedIssue } });
         } catch (error) {
@@ -144,7 +149,7 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
         try {
             log('deleteIssue started');
             dispatch({ type: DELETE_ISSUE_STARTED });
-            const deleted_issue = await apideleteIssue(issue);
+            const deleted_issue = await apideleteIssue(token, issue);
             log('deleteIssue succeeded');
             dispatch({ type: DELETE_ISSUE_SUCCEEDED, payload: { issue: issue } });
         } catch (error) {
@@ -156,23 +161,26 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
     function wsEffect() {
         let canceled = false;
         log('wsEffect - connecting');
-        const closeWebSocket = newWebSocket(message => {
-            if (canceled) {
-                return;
-            }
-            const { event, payload: { issue }} = message;
-            log(`ws message, issue ${event}`);
-            if (event === 'created' || event === 'updated') {
-                dispatch({ type: SAVE_ISSUE_SUCCEEDED, payload: { issue } });
-            }
-            if (event === 'deleted') {
-                dispatch({ type: DELETE_ISSUE_SUCCEEDED, payload: { issue } });
-            }
-        });
+        let closeWebSocket: () => void;
+        if (token?.trim()) {
+            closeWebSocket = newWebSocket(token, message => {
+                if (canceled) {
+                    return;
+                }
+                const {type, payload: issue} = message;
+                log(`ws message, issue ${type}`);
+                if (type === 'created' || type === 'updated') {
+                    dispatch({type: SAVE_ISSUE_SUCCEEDED, payload: {issue}});
+                }
+                if (type === 'deleted') {
+                    dispatch({type: DELETE_ISSUE_SUCCEEDED, payload: {issue}});
+                }
+            });
+        }
         return () => {
             log('wsEffect - disconnecting');
             canceled = true;
-            closeWebSocket();
+            closeWebSocket?.();
         }
     }
 };

@@ -30,7 +30,7 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
     useEffect(() => {
         log('useEffect');
         const routeId = match.params.id || '';
-        const issue = issues?.find(it => it.id === routeId);
+        const issue = issues?.find(it => it._id === routeId);
         setIssue(issue);
         if (issue) {
             setTitle(issue.title);
@@ -54,7 +54,7 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
                     <IonTitle>Manage</IonTitle>
                     <IonButtons slot="end">
                         {
-                            (issue && issue.id) ?
+                            (issue && issue._id) ?
                                 <>
                                     <IonButton onClick={handleSave}>
                                         Save changes

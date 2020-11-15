@@ -3,12 +3,12 @@ import { IonItem, IonLabel } from '@ionic/react';
 import { IssueProps } from './IssueProps';
 
 interface IssuePropsExt extends IssueProps {
-    onEdit: (id?: string) => void;
+    onEdit: (_id?: string) => void;
 }
 
-const Issue: React.FC<IssuePropsExt> = ({ id, title, description, state, onEdit }) => {
+const Issue: React.FC<IssuePropsExt> = ({ _id, title, description, state, onEdit }) => {
     return (
-        <IonItem onClick={() => onEdit(id)}>
+        <IonItem onClick={() => onEdit(_id)}>
             <IonLabel>{title}</IonLabel>
             <IonLabel>{description}</IonLabel>
             <IonLabel>{state}</IonLabel>

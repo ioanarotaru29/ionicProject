@@ -1,5 +1,5 @@
 export interface IssueProps {
-    id?: string;
+    _id?: string;
     title: string;
     description: string;
     state: string;

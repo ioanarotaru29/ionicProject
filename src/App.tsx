@@ -23,19 +23,23 @@ import '@ionic/react/css/display.css';
 /* Theme variables */
 import './theme/variables.css';
 import { IssueProvider } from './issues/IssueProvider';
+import {AuthProvider, Login, PrivateRoute} from "./auth";
 
 const App: React.FC = () => (
     <IonApp>
-        <IssueProvider>
-            <IonReactRouter>
-                <IonRouterOutlet>
-                    <Route path="/issues" component={IssueList} exact={true} />
-                    <Route path="/issue" component={IssueEdit} exact={true} />
-                    <Route path="/issue/:id" component={IssueEdit} exact={true} />
+        <IonReactRouter>
+            <IonRouterOutlet>
+                <AuthProvider>
+                    <Route path="/login" component={Login} exact={true}/>
+                    <IssueProvider>
+                        <PrivateRoute path="/issues" component={IssueList} exact={true} />
+                        <PrivateRoute path="/issue" component={IssueEdit} exact={true} />
+                        <PrivateRoute path="/issue/:id" component={IssueEdit} exact={true} />
+                    </IssueProvider>
                     <Route exact path="/" render={() => <Redirect to="/issues" />} />
-                </IonRouterOutlet>
-            </IonReactRouter>
-        </IssueProvider>
+                </AuthProvider>
+            </IonRouterOutlet>
+        </IonReactRouter>
     </IonApp>
 );
 
