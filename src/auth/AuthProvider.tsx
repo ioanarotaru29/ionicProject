@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import { getLogger } from '../core';
+import { getLogger, Storage } from '../core';
 import { login as loginApi } from './authApi';
 
 const log = getLogger('AuthProvider');
@@ -64,7 +64,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         async function authenticate() {
             if (!pendingAuthentication) {
-                log('authenticate, !pendingAuthentication, return');
+                log('authenticate, !pendingAuthentication, try local storage');
+                const ret = await Storage.get({key: "token"});
+                log(ret);
+                if(ret.value != null){
+                    const token = ret.value || '';
+                    setState({
+                        ...state,
+                        token,
+                        isAuthenticated: true,
+                    });
+                }
                 return;
             }
             try {
@@ -86,6 +96,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     isAuthenticated: true,
                     isAuthenticating: false,
                 });
+                await Storage.set({key: "token", value: token})
             } catch (error) {
                 if (canceled) {
                     return;

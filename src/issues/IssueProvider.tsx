@@ -1,6 +1,6 @@
 import React, {useCallback, useContext, useEffect, useReducer} from 'react';
 import PropTypes from 'prop-types';
-import { getLogger } from '../core';
+import { getLogger, Storage } from '../core';
 import { IssueProps } from './IssueProps';
 import {createIssue, apideleteIssue, getIssues, newWebSocket, updateIssue} from './issueApi';
 import { AuthContext } from '../auth';
@@ -117,6 +117,12 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
             if (!token?.trim()) {
                 return;
             }
+            const ret = await Storage.get({key: "issues"});
+            if(ret.value!=null){
+                const issues = JSON.parse(ret.value);
+                dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
+                return;
+            }
             try {
                 log('fetchIssues started');
                 dispatch({ type: FETCH_ISSUES_STARTED });
@@ -124,6 +130,7 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                 log('fetchIssues succeeded');
                 if (!canceled) {
                     dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
+                    await Storage.set({key: "issues", value: JSON.stringify(issues)});
                 }
             } catch (error) {
                 log('fetchIssues failed');
@@ -139,6 +146,7 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
             const savedIssue = await (issue._id ? updateIssue(token, issue) : createIssue(token, issue));
             log('saveIssue succeeded');
             dispatch({ type: SAVE_ISSUE_SUCCEEDED, payload: { issue: savedIssue } });
+            await Storage.set({key: "issues", value: JSON.stringify(issues)});
         } catch (error) {
             log('saveIssue failed');
             dispatch({ type: SAVE_ISSUE_FAILED, payload: { error } });
@@ -152,6 +160,7 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
             const deleted_issue = await apideleteIssue(token, issue);
             log('deleteIssue succeeded');
             dispatch({ type: DELETE_ISSUE_SUCCEEDED, payload: { issue: issue } });
+            await Storage.set({key: "issues", value: JSON.stringify(issues)});
         } catch (error) {
             log('deleteIssue failed');
             dispatch({ type: DELETE_ISSUE_FAILED, payload: { error } });
@@ -171,9 +180,11 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                 log(`ws message, issue ${type}`);
                 if (type === 'created' || type === 'updated') {
                     dispatch({type: SAVE_ISSUE_SUCCEEDED, payload: {issue}});
+                    Storage.set({key: "issues", value: JSON.stringify(issues)});
                 }
                 if (type === 'deleted') {
                     dispatch({type: DELETE_ISSUE_SUCCEEDED, payload: {issue}});
+                    Storage.set({key: "issues", value: JSON.stringify(issues)});
                 }
             });
         }
