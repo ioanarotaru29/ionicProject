@@ -118,7 +118,7 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                 return;
             }
             const ret = await Storage.get({key: "issues"});
-            if(ret.value!=null){
+            if(ret.value != undefined && ret.value != 'undefined'){
                 const issues = JSON.parse(ret.value);
                 dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
                 return;

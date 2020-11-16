@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import {Redirect, RouteComponentProps} from 'react-router';
 import {
     IonButton, IonButtons,
@@ -6,24 +6,25 @@ import {
     IonFab,
     IonFabButton,
     IonHeader,
-    IonIcon,
+    IonIcon, IonInfiniteScroll, IonInfiniteScrollContent,
     IonList, IonLoading,
-    IonPage,
+    IonPage, IonSearchbar,
     IonTitle,
-    IonToolbar
+    IonToolbar, useIonViewWillEnter
 } from '@ionic/react';
-import { add } from 'ionicons/icons';
+import {add } from 'ionicons/icons';
 import Issue from './Issue';
 import { getLogger, Storage } from '../core';
 import { IssueContext } from './IssueProvider';
-import {Link} from "react-router-dom";
-import {render} from "react-dom";
 
 const log = getLogger('IssueList');
 
 const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
     const { issues, fetching, fetchingError } = useContext(IssueContext);
+    const [filterIssues, setFilterIssues] = useState<string>('');
+
     log('render');
+
     const handleLogout = () => {
         Storage.clear();
         window.location.reload();
@@ -39,11 +40,16 @@ const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
 
                 </IonToolbar>
             </IonHeader>
-            <IonContent>
+            <IonContent fullscreen>
+                <IonSearchbar
+                    value={filterIssues}
+                    debounce={100}
+                    onIonChange={e => setFilterIssues(e.detail.value!)}>
+                </IonSearchbar>
                 <IonLoading isOpen={fetching} message="Fetching issues" />
                 {issues && (
                     <IonList>
-                        {issues.map(({ _id, title, description,state}) =>
+                        {issues.filter(({ _id, title, description,state}) => title.toLowerCase().includes(filterIssues.toLowerCase())).map(({ _id, title, description,state}) =>
                             <Issue key={_id} _id={_id} title={title} description={description} state={state} onEdit={id => history.push(`/issue/${id}`)} />)}
                     </IonList>
                 )}
