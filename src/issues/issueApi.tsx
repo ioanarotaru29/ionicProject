@@ -7,8 +7,8 @@ const log = getLogger('issueApi');
 const issueUrl = `http://${baseUrl}/api/issue`;
 
 
-export const getIssues: (token: string) => Promise<IssueProps[]> = token => {
-    return withLogs(axios.get(issueUrl, authConfig(token)), 'getIssues');
+export const getIssues: (token: string, query: string) => Promise<IssueProps[]> = (token, query) => {
+    return withLogs(axios.get(`${issueUrl}${query}`, authConfig(token)), 'getIssues');
 }
 
 export const createIssue: (token: string, issue: IssueProps) => Promise<IssueProps[]> = (token, issue) => {

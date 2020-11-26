@@ -21,13 +21,13 @@ import {IssueProps} from "./IssueProps";
 const log = getLogger('IssueList');
 
 const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
-    const { issues, fetching, fetchingError } = useContext(IssueContext);
+    const { issues, fetching, fetchingError, filterIssue, filterString } = useContext(IssueContext);
     const [disableInfiniteScroll, setDisableInfiniteScroll] = useState<boolean>(false);
-    const [filterIssues, setFilterIssues] = useState<string>('');
+    //const [filterIssues, setFilterIssues] = useState<string>('');
     const [issuesSlice, setIssuesSlice] = useState<IssueProps[] | undefined>([]);
     const [page, setPage ] = useState<number>(1);
 
-    const offset = 10;
+    const offset = 12;
 
     log('render');
 
@@ -79,16 +79,16 @@ const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
 
                 </IonToolbar>
             </IonHeader>
-            <IonContent fullscreen>
+            <IonContent>
                 <IonSearchbar
-                    value={filterIssues}
+                    value={filterString}
                     debounce={100}
-                    onIonChange={e => setFilterIssues(e.detail.value!)}>
+                    onIonChange={e => filterIssue && filterIssue(e.detail.value!)}>
                 </IonSearchbar>
                 <IonLoading isOpen={fetching} message="Fetching issues" />
                 {issuesSlice && (
                     <IonList>
-                        {issuesSlice.filter(({ _id, title, description,state}) => title.toLowerCase().includes(filterIssues.toLowerCase())).map(({ _id, title, description,state}) =>
+                        {issuesSlice.map(({ _id, title, description,state}) =>
                             <Issue key={_id} _id={_id} title={title} description={description} state={state} onEdit={id => history.push(`/issue/${id}`)} />)}
                     </IonList>
                 )}
