@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from 'react';
-import {Redirect, RouteComponentProps} from 'react-router';
+import { RouteComponentProps} from 'react-router';
 import {
     IonButton, IonButtons,
     IonContent,
@@ -10,7 +10,7 @@ import {
     IonList, IonLoading,
     IonPage, IonSearchbar,
     IonTitle,
-    IonToolbar, useIonViewDidEnter, useIonViewWillEnter
+    IonToolbar, useIonViewDidEnter
 } from '@ionic/react';
 import {add } from 'ionicons/icons';
 import Issue from './Issue';
@@ -21,23 +21,9 @@ import {IssueProps} from "./IssueProps";
 const log = getLogger('IssueList');
 
 const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
-    const { issues, fetching, fetchingError, filterIssue, filterString } = useContext(IssueContext);
+    const { issues, fetching, fetchingError, filterIssue, filterString, pageIssue, crtPage} = useContext(IssueContext);
     const [disableInfiniteScroll, setDisableInfiniteScroll] = useState<boolean>(false);
-    //const [filterIssues, setFilterIssues] = useState<string>('');
-    const [issuesSlice, setIssuesSlice] = useState<IssueProps[] | undefined>([]);
-    const [page, setPage ] = useState<number>(1);
-
-    const offset = 12;
-
     log('render');
-
-    useEffect( () =>{
-        log("use effect");
-        const slice = issues?.slice(0, offset);
-        setIssuesSlice(slice);
-        return;
-        },[issues]
-    )
 
     useIonViewDidEnter( async () => {
 
@@ -45,21 +31,8 @@ const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
 
     async function searchNext($event: CustomEvent<void>) {
         log("search next")
-        if(issuesSlice?.length !== issues?.length){
-            const slice = issues?.slice(page*offset, (page+1)*offset);
-            // @ts-ignore
-            if(slice?.length < offset) {
-                setDisableInfiniteScroll(true);
-            }
-            else {
-                setDisableInfiniteScroll(false);
-            }
-            // @ts-ignore
-            setIssuesSlice(issuesSlice?.concat(slice));
-            setPage(prevState => prevState+1)
-        }
-        else{
-            setDisableInfiniteScroll(true);
+        if (pageIssue) {
+            await pageIssue(crtPage + 1)
         }
         ($event.target as HTMLIonInfiniteScrollElement).complete();
     }
@@ -83,12 +56,12 @@ const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
                 <IonSearchbar
                     value={filterString}
                     debounce={100}
-                    onIonChange={e => filterIssue && filterIssue(e.detail.value!)}>
+                    onIonChange={e => filterIssue && filterIssue(e.detail.value!) && setDisableInfiniteScroll(false)}>
                 </IonSearchbar>
                 <IonLoading isOpen={fetching} message="Fetching issues" />
-                {issuesSlice && (
+                {issues && (
                     <IonList>
-                        {issuesSlice.map(({ _id, title, description,state}) =>
+                        {issues.map(({ _id, title, description,state}) =>
                             <Issue key={_id} _id={_id} title={title} description={description} state={state} onEdit={id => history.push(`/issue/${id}`)} />)}
                     </IonList>
                 )}

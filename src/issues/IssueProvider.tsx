@@ -11,6 +11,7 @@ const log = getLogger('IssueProvider');
 type SaveIssueFn = (issue: IssueProps) => Promise<any>;
 type DeleteIssueFn = (issue: IssueProps) => Promise<any>;
 type FilterIssueFn = (string: string) => Promise<any>;
+type PagingIssueFn = (page: number) => Promise<any>;
 
 export interface IssuesState {
     issues?: IssueProps[],
@@ -23,7 +24,9 @@ export interface IssuesState {
     deletingError?: Error | null,
     deleteIssue?: DeleteIssueFn,
     filterIssue?: FilterIssueFn,
-    filterString: string
+    filterString: string,
+    pageIssue?: PagingIssueFn,
+    crtPage: number
 }
 
 interface ActionProps {
@@ -35,7 +38,8 @@ const initialState: IssuesState = {
     fetching: false,
     saving: false,
     deleting: false,
-    filterString: ""
+    filterString: "",
+    crtPage: 1
 };
 
 const FETCH_ISSUES_STARTED = 'FETCH_ISSUES_STARTED';
@@ -52,9 +56,18 @@ const reducer: (state: IssuesState, action: ActionProps) => IssuesState =
     (state, { type, payload }) => {
         switch (type) {
             case FETCH_ISSUES_STARTED:
-                return { ...state, filterString: payload.query, fetching: true, fetchingError: null };
+                let pageNr = 1;
+                let filter = state.filterString;
+                if(payload && payload.page)
+                    pageNr = payload.page;
+                if(payload && payload.query != undefined)
+                    filter = payload.query;
+                return { ...state, crtPage: pageNr, filterString: filter, fetching: true, fetchingError: null };
             case FETCH_ISSUES_SUCCEEDED:
-                return { ...state, issues: payload.issues, fetching: false };
+                if(state.crtPage === 1)
+                    return { ...state, issues: payload.issues, fetching: false};
+                else
+                    return { ...state, issues: state.issues?.concat(payload.issues), fetching: false}
             case FETCH_ISSUES_FAILED:
                 return { ...state, fetchingError: payload.error, fetching: false };
             case SAVE_ISSUE_STARTED:
@@ -98,13 +111,16 @@ interface IssueProviderProps {
 export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
     const { token } = useContext(AuthContext);
     const [state, dispatch] = useReducer(reducer, initialState);
-    const { issues, filterString, fetching, fetchingError, saving, savingError, deleting, deletingError } = state;
-    useEffect(getIssuesEffect, [token, filterString]);
+    const { issues, filterString, crtPage, fetching, fetchingError, saving, savingError, deleting, deletingError } = state;
+    useEffect(getIssuesEffect, [token]);
     useEffect(wsEffect, [token]);
     const saveIssue = useCallback<SaveIssueFn>(saveIssueCallback, [token]);
     const deleteIssue = useCallback<DeleteIssueFn>(deleteIssueCallback, [token]);
     const filterIssue = useCallback<FilterIssueFn>(filterIssueCallback, [token, filterString]);
-    const value = { issues, filterString, fetching, fetchingError, saving, savingError, saveIssue, deleting, deletingError, deleteIssue, filterIssue };
+    const pageIssue = useCallback<PagingIssueFn>(pageIssueCallback, [token, crtPage, filterString]);
+    const value = { issues, filterString, crtPage, fetching, fetchingError, saving, savingError, saveIssue, deleting, deletingError, deleteIssue, filterIssue, pageIssue };
+
+
     log('returns');
     return (
         <IssueContext.Provider value={value}>
@@ -130,8 +146,8 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
             }
             try {
                 log('fetchIssues started');
-                dispatch({ type: FETCH_ISSUES_STARTED, payload: { query: filterString} });
-                const issues = await getIssues(token, filterString === "" ? "" : `?title=${filterString}`);
+                dispatch({ type: FETCH_ISSUES_STARTED });
+                const issues = await getIssues(token, filterString === "" ? `?page=1` : `title=${filterString}?page=1`);
                 log('fetchIssues succeeded');
                 if (!canceled) {
                     dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
@@ -144,6 +160,23 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
         }
     }
 
+    async function pageIssueCallback(page: number){
+        if (!token?.trim()) {
+            return;
+        }
+        try {
+            log('nextPage started');
+            dispatch({ type: FETCH_ISSUES_STARTED, payload: { page: page} });
+            const issues = await getIssues(token, `?title=${filterString}&page=${page}`);
+            log('nextPage succeeded');
+            dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
+        }
+        catch (error) {
+            log('nextPage failed');
+            dispatch({ type: FETCH_ISSUES_FAILED, payload: { error } });
+        }
+    }
+
     async function filterIssueCallback(query: string){
         if (!token?.trim()) {
             return;
@@ -151,7 +184,7 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
         try {
             log('filterIssues started');
             dispatch({ type: FETCH_ISSUES_STARTED, payload: { query: query} });
-            const issues = await getIssues(token, `?title=${query}`);
+            const issues = await getIssues(token, `?title=${query}&page=1`);
             log('filterIssues succeeded');
             dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
             }
