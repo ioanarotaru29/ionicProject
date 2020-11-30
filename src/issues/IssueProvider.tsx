@@ -1,10 +1,13 @@
 import React, {useCallback, useContext, useEffect, useReducer} from 'react';
+import { Plugins } from '@capacitor/core';
 import PropTypes from 'prop-types';
 import { getLogger, Storage } from '../core';
 import { IssueProps } from './IssueProps';
 import {createIssue, apideleteIssue, getIssues, newWebSocket, updateIssue} from './issueApi';
 import { AuthContext } from '../auth';
 import {useNetwork} from "../core/useNetwork";
+
+const { BackgroundTask } = Plugins;
 
 const log = getLogger('IssueProvider');
 
@@ -116,8 +119,11 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
 
     const [state, dispatch] = useReducer(reducer, initialState);
     const { issues, filterString, crtPage, fetching, fetchingError, saving, savingError, deleting, deletingError, usingLocal } = state;
+
     useEffect(getIssuesEffect, [token]);
     useEffect(wsEffect, [token]);
+    useEffect(backgroundTask, [token, networkStatus.connected]);
+
     const saveIssue = useCallback<SaveIssueFn>(saveIssueCallback, [token]);
     const deleteIssue = useCallback<DeleteIssueFn>(deleteIssueCallback, [token]);
     const filterIssue = useCallback<FilterIssueFn>(filterIssueCallback, [token, filterString]);
@@ -133,7 +139,27 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
         </IssueContext.Provider>
     );
 
-    function getIssuesEffect() {
+    function backgroundTask(){
+       if(networkStatus.connected){
+           let taskId = BackgroundTask.beforeExit(async () => {
+               console.log('useBackgroundTask - executeTask started');
+
+               const ret = await Storage.get({key: "issues"});
+               if(ret.value != undefined && ret.value != 'undefined') {
+                   const issues = JSON.parse(ret.value);
+                   for(let i = 0; i< issues.length; i++){
+                       const issue = issues[i];
+                       await (issue._id.contains("saved") ? createIssue(token, issue) : updateIssue(token, issue));
+                   }
+               }
+               console.log('useBackgroundTask - executeTask finished');
+               BackgroundTask.finish({ taskId });
+           });
+       }
+       return;
+    }
+
+    function getIssuesEffect()  {
         let canceled = false;
         fetchIssues();
         return () => {
@@ -170,6 +196,7 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                             dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
                             return;
                         }
+                        dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
                     }
                     else
                         dispatch({ type: FETCH_ISSUES_FAILED, payload: { error } });
