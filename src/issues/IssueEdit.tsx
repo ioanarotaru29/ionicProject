@@ -14,6 +14,7 @@ import { getLogger } from '../core';
 import { IssueContext } from './IssueProvider';
 import { RouteComponentProps } from 'react-router';
 import { IssueProps } from './IssueProps';
+import {useNetwork} from "../core/useNetwork";
 
 const log = getLogger('IssueEdit');
 
@@ -27,6 +28,9 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
     const [description, setDescription] = useState('');
     const [state, setState] = useState('');
     const [issue, setIssue] = useState<IssueProps>();
+
+    const { networkStatus }  = useNetwork();
+
     useEffect(() => {
         log('useEffect');
         const routeId = match.params.id || '';
@@ -40,17 +44,26 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
     }, [match.params.id, issues]);
     const handleSave = () => {
         const editedIssue = issue ? { ...issue, title, description, state} : { title, description, state};
-        saveIssue && saveIssue(editedIssue).then(() => history.goBack());
+        saveIssue && saveIssue(editedIssue).then(() => {
+            if(savingError == null)
+                history.goBack();
+        });
     };
     const handleDelete = () => {
         const editedIssue = issue ? { ...issue, title, description, state} : { title: '', description:'', state:''};
-        deleteIssue && deleteIssue(editedIssue).then(() => history.goBack());
+        deleteIssue && deleteIssue(editedIssue).then(() => {
+            if(deletingError == null)
+                history.goBack();
+        });
     };
     log('render');
     return (
         <IonPage>
             <IonHeader>
                 <IonToolbar>
+                    {
+                        <div slot="start" className={`circle ${networkStatus.connected ? "connected" : "disconnected"}`}/>
+                    }
                     <IonTitle>Manage</IonTitle>
                     <IonButtons slot="end">
                         {

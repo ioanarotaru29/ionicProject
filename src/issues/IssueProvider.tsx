@@ -5,6 +5,7 @@ import { IssueProps } from './IssueProps';
 import {createIssue, apideleteIssue, getIssues, newWebSocket, updateIssue} from './issueApi';
 import { AuthContext } from '../auth';
 import {filter} from "ionicons/icons";
+import {useNetwork} from "../core/useNetwork";
 
 const log = getLogger('IssueProvider');
 
@@ -110,6 +111,8 @@ interface IssueProviderProps {
 
 export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
     const { token } = useContext(AuthContext);
+    const { networkStatus }  = useNetwork();
+
     const [state, dispatch] = useReducer(reducer, initialState);
     const { issues, filterString, crtPage, fetching, fetchingError, saving, savingError, deleting, deletingError } = state;
     useEffect(getIssuesEffect, [token]);

@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useContext, useState} from 'react';
 import { RouteComponentProps} from 'react-router';
 import {
     IonButton, IonButtons,
@@ -12,17 +12,20 @@ import {
     IonTitle,
     IonToolbar, useIonViewDidEnter
 } from '@ionic/react';
-import {add } from 'ionicons/icons';
+import {add} from 'ionicons/icons';
 import Issue from './Issue';
 import { getLogger, Storage } from '../core';
 import { IssueContext } from './IssueProvider';
-import {IssueProps} from "./IssueProps";
+import {useNetwork} from "../core/useNetwork";
 
 const log = getLogger('IssueList');
 
 const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
     const { issues, fetching, fetchingError, filterIssue, filterString, pageIssue, crtPage} = useContext(IssueContext);
     const [disableInfiniteScroll, setDisableInfiniteScroll] = useState<boolean>(false);
+
+    const { networkStatus }  = useNetwork();
+
     log('render');
 
     useIonViewDidEnter( async () => {
@@ -45,6 +48,9 @@ const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
         <IonPage>
             <IonHeader>
                 <IonToolbar>
+                    {
+                        <div slot="start" className={`circle ${networkStatus.connected ? "connected" : "disconnected"}`} />
+                    }
                     <IonTitle>Issues List</IonTitle>
                     <IonButtons slot="end">
                         <IonButton onClick={handleLogout}>Logout</IonButton>
