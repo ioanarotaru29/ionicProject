@@ -23,7 +23,7 @@ interface IssueEditProps extends RouteComponentProps<{
 }> {}
 
 const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
-    const { issues, saving, savingError, saveIssue, deleting, deletingError, deleteIssue } = useContext(IssueContext);
+    const { issues, saving, savingError, saveIssue, deleting, deletingError, deleteIssue, usingLocal } = useContext(IssueContext);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [state, setState] = useState('');
@@ -41,20 +41,18 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
             setDescription(issue.description);
             setState(issue.state);
         }
+        if(usingLocal)
+            alert("Changes are saved locally");
+
     }, [match.params.id, issues]);
+
     const handleSave = () => {
         const editedIssue = issue ? { ...issue, title, description, state} : { title, description, state};
-        saveIssue && saveIssue(editedIssue).then(() => {
-            if(savingError == null)
-                history.goBack();
-        });
+        saveIssue && saveIssue(editedIssue).then(() => { history.goBack() });
     };
     const handleDelete = () => {
         const editedIssue = issue ? { ...issue, title, description, state} : { title: '', description:'', state:''};
-        deleteIssue && deleteIssue(editedIssue).then(() => {
-            if(deletingError == null)
-                history.goBack();
-        });
+        deleteIssue && deleteIssue(editedIssue).then(() => { history.goBack() });
     };
     log('render');
     return (

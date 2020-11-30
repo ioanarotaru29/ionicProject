@@ -62,6 +62,7 @@ const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
                 <IonSearchbar
                     value={filterString}
                     debounce={100}
+                    disabled={!networkStatus.connected}
                     onIonChange={e => filterIssue && filterIssue(e.detail.value!) && setDisableInfiniteScroll(false)}>
                 </IonSearchbar>
                 <IonLoading isOpen={fetching} message="Fetching issues" />
@@ -71,7 +72,7 @@ const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
                             <Issue key={_id} _id={_id} title={title} description={description} state={state} onEdit={id => history.push(`/issue/${id}`)} />)}
                     </IonList>
                 )}
-                <IonInfiniteScroll threshold="100px" disabled={disableInfiniteScroll}
+                <IonInfiniteScroll threshold="100px" disabled={!networkStatus.connected}
                                    onIonInfinite={(e: CustomEvent<void>) => searchNext(e)}>
                     <IonInfiniteScrollContent
                         loadingText="Loading more issues...">

@@ -4,7 +4,6 @@ import { getLogger, Storage } from '../core';
 import { IssueProps } from './IssueProps';
 import {createIssue, apideleteIssue, getIssues, newWebSocket, updateIssue} from './issueApi';
 import { AuthContext } from '../auth';
-import {filter} from "ionicons/icons";
 import {useNetwork} from "../core/useNetwork";
 
 const log = getLogger('IssueProvider');
@@ -27,7 +26,8 @@ export interface IssuesState {
     filterIssue?: FilterIssueFn,
     filterString: string,
     pageIssue?: PagingIssueFn,
-    crtPage: number
+    crtPage: number,
+    usingLocal: boolean
 }
 
 interface ActionProps {
@@ -40,7 +40,8 @@ const initialState: IssuesState = {
     saving: false,
     deleting: false,
     filterString: "",
-    crtPage: 1
+    crtPage: 1,
+    usingLocal: false
 };
 
 const FETCH_ISSUES_STARTED = 'FETCH_ISSUES_STARTED';
@@ -72,7 +73,7 @@ const reducer: (state: IssuesState, action: ActionProps) => IssuesState =
             case FETCH_ISSUES_FAILED:
                 return { ...state, fetchingError: payload.error, fetching: false };
             case SAVE_ISSUE_STARTED:
-                return { ...state, savingError: null, saving: true };
+                return { ...state, savingError: null, saving: true, usingLocal: false };
             case SAVE_ISSUE_SUCCEEDED:
                 const issues = [...(state.issues || [])];
                 const issue = payload.issue;
@@ -82,11 +83,11 @@ const reducer: (state: IssuesState, action: ActionProps) => IssuesState =
                 } else {
                     issues[index] = issue;
                 }
-                return { ...state, issues, saving: false };
+                return { ...state, issues, saving: false, usingLocal: payload.local };
             case SAVE_ISSUE_FAILED:
                 return { ...state, savingError: payload.error, saving: false };
             case DELETE_ISSUE_STARTED:
-                return { ...state, deletingError: null, deleting: true };
+                return { ...state, deletingError: null, deleting: true, usingLocal: false};
             case DELETE_ISSUE_SUCCEEDED:
                 const initial_issues = [...(state.issues || [])];
                 const deleted_issue = payload.issue;
@@ -95,7 +96,7 @@ const reducer: (state: IssuesState, action: ActionProps) => IssuesState =
                     initial_issues.splice(deleted_index, 1);
                 }
                 console.log(initial_issues);
-                return { ...state, issues: initial_issues, deleting: false };
+                return { ...state, issues: initial_issues, deleting: false, usingLocal: payload.local };
             case DELETE_ISSUE_FAILED:
                 return { ...state, deletingError: payload.error, deleting: false };
             default:
@@ -114,15 +115,16 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
     const { networkStatus }  = useNetwork();
 
     const [state, dispatch] = useReducer(reducer, initialState);
-    const { issues, filterString, crtPage, fetching, fetchingError, saving, savingError, deleting, deletingError } = state;
+    const { issues, filterString, crtPage, fetching, fetchingError, saving, savingError, deleting, deletingError, usingLocal } = state;
     useEffect(getIssuesEffect, [token]);
     useEffect(wsEffect, [token]);
     const saveIssue = useCallback<SaveIssueFn>(saveIssueCallback, [token]);
     const deleteIssue = useCallback<DeleteIssueFn>(deleteIssueCallback, [token]);
     const filterIssue = useCallback<FilterIssueFn>(filterIssueCallback, [token, filterString]);
     const pageIssue = useCallback<PagingIssueFn>(pageIssueCallback, [token, crtPage, filterString]);
-    const value = { issues, filterString, crtPage, fetching, fetchingError, saving, savingError, saveIssue, deleting, deletingError, deleteIssue, filterIssue, pageIssue };
+    const value = { issues, filterString, crtPage, fetching, fetchingError, saving, savingError, saveIssue, deleting, deletingError, deleteIssue, filterIssue, pageIssue, usingLocal };
 
+    let savedLocallyNr = 1;
 
     log('returns');
     return (
@@ -141,24 +143,37 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
             if (!token?.trim()) {
                 return;
             }
-            const ret = await Storage.get({key: "issues"});
-            if(ret.value != undefined && ret.value != 'undefined'){
-                const issues = JSON.parse(ret.value);
-                dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
-                return;
-            }
-            try {
-                log('fetchIssues started');
-                dispatch({ type: FETCH_ISSUES_STARTED });
-                const issues = await getIssues(token, filterString === "" ? `?page=1` : `title=${filterString}?page=1`);
-                log('fetchIssues succeeded');
-                if (!canceled) {
+            if(!networkStatus.connected){
+                const ret = await Storage.get({key: "issues"});
+                if(ret.value != undefined && ret.value != 'undefined'){
+                    const issues = JSON.parse(ret.value);
                     dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
-                    await Storage.set({key: "issues", value: JSON.stringify(issues)});
+                    return;
                 }
-            } catch (error) {
-                log('fetchIssues failed');
-                dispatch({ type: FETCH_ISSUES_FAILED, payload: { error } });
+            }
+            else{
+                try {
+                    log('fetchIssues started');
+                    dispatch({ type: FETCH_ISSUES_STARTED });
+                    const issues = await getIssues(token, filterString === "" ? `?page=1` : `title=${filterString}?page=1`);
+                    log('fetchIssues succeeded');
+                    if (!canceled) {
+                        dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
+                        await Storage.set({key: "issues", value: JSON.stringify(issues)});
+                    }
+                } catch (error) {
+                    log('fetchIssues failed');
+                    if(error.message === "Network Error"){
+                        const ret = await Storage.get({key: "issues"});
+                        if(ret.value != undefined && ret.value != 'undefined'){
+                            const issues = JSON.parse(ret.value);
+                            dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
+                            return;
+                        }
+                    }
+                    else
+                        dispatch({ type: FETCH_ISSUES_FAILED, payload: { error } });
+                }
             }
         }
     }
@@ -167,12 +182,18 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
         if (!token?.trim()) {
             return;
         }
+        if(!networkStatus.connected){
+            log('filterIssues failed');
+            dispatch({ type: FETCH_ISSUES_FAILED, payload: { error: new Error("Not connected") } });
+            return;
+        }
         try {
             log('nextPage started');
             dispatch({ type: FETCH_ISSUES_STARTED, payload: { page: page} });
             const issues = await getIssues(token, `?title=${filterString}&page=${page}`);
             log('nextPage succeeded');
             dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
+            await Storage.set({key: "issues", value: JSON.stringify(issues)});
         }
         catch (error) {
             log('nextPage failed');
@@ -182,6 +203,12 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
 
     async function filterIssueCallback(query: string){
         if (!token?.trim()) {
+            return;
+        }
+        if(!networkStatus.connected){
+            log('filterIssues failed');
+            dispatch({ type: FETCH_ISSUES_STARTED, payload: { query: query} });
+            dispatch({ type: FETCH_ISSUES_FAILED, payload: { error: new Error("Not connected") } });
             return;
         }
         try {
@@ -198,30 +225,66 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
     }
 
     async function saveIssueCallback(issue: IssueProps) {
-        try {
-            log('saveIssue started');
-            dispatch({ type: SAVE_ISSUE_STARTED });
-            const savedIssue = await (issue._id ? updateIssue(token, issue) : createIssue(token, issue));
-            log('saveIssue succeeded');
-            dispatch({ type: SAVE_ISSUE_SUCCEEDED, payload: { issue: savedIssue } });
-            await Storage.set({key: "issues", value: JSON.stringify(issues)});
-        } catch (error) {
-            log('saveIssue failed');
-            dispatch({ type: SAVE_ISSUE_FAILED, payload: { error } });
+        if(!networkStatus.connected){
+            if(issue.title) {
+                dispatch({ type: SAVE_ISSUE_STARTED });
+                if(!issue._id){
+                    issue._id = `saved${savedLocallyNr}`;
+                    savedLocallyNr+=1;
+                }
+                dispatch({type: SAVE_ISSUE_SUCCEEDED, payload: {issue: issue, local: true}});
+                await Storage.set({key: "issues", value: JSON.stringify(issues)});
+            }
+            else
+                dispatch({ type: SAVE_ISSUE_FAILED, payload: { error: new Error("Bad Request") } });
+        }
+        else{
+            try {
+                log('saveIssue started');
+                dispatch({ type: SAVE_ISSUE_STARTED });
+                const savedIssue = await (issue._id ? updateIssue(token, issue) : createIssue(token, issue));
+                log('saveIssue succeeded');
+                dispatch({ type: SAVE_ISSUE_SUCCEEDED, payload: { issue: savedIssue, local: false } });
+                await Storage.set({key: "issues", value: JSON.stringify(issues)});
+            } catch (error) {
+                log('saveIssue failed');
+                if(error.message === 'Network Error'){
+                    if(issue.title) {
+                        dispatch({type: SAVE_ISSUE_SUCCEEDED, payload: {issue: issue, local: true}});
+                        await Storage.set({key: "issues", value: JSON.stringify(issues)});
+                    }
+                    else
+                        dispatch({ type: SAVE_ISSUE_FAILED, payload: { error: new Error("Bad Request") } });
+                }
+                else
+                    dispatch({ type: SAVE_ISSUE_FAILED, payload: { error } });
+            }
         }
     }
 
     async function deleteIssueCallback(issue: IssueProps) {
-        try {
-            log('deleteIssue started');
+        if(!networkStatus.connected){
             dispatch({ type: DELETE_ISSUE_STARTED });
-            const deleted_issue = await apideleteIssue(token, issue);
-            log('deleteIssue succeeded');
-            dispatch({ type: DELETE_ISSUE_SUCCEEDED, payload: { issue: issue } });
+            dispatch({ type: DELETE_ISSUE_SUCCEEDED, payload: { issue: issue, local: true } });
             await Storage.set({key: "issues", value: JSON.stringify(issues)});
-        } catch (error) {
-            log('deleteIssue failed');
-            dispatch({ type: DELETE_ISSUE_FAILED, payload: { error } });
+        }
+        else{
+            try {
+                log('deleteIssue started');
+                dispatch({ type: DELETE_ISSUE_STARTED });
+                const deleted_issue = await apideleteIssue(token, issue);
+                log('deleteIssue succeeded');
+                dispatch({ type: DELETE_ISSUE_SUCCEEDED, payload: { issue: issue, local: false} });
+                await Storage.set({key: "issues", value: JSON.stringify(issues)});
+            } catch (error) {
+                log('deleteIssue failed');
+                if(error.message === "Network Error"){
+                    dispatch({ type: DELETE_ISSUE_SUCCEEDED, payload: { issue: issue, local: true} });
+                    await Storage.set({key: "issues", value: JSON.stringify(issues)});
+                }
+                else
+                    dispatch({ type: DELETE_ISSUE_FAILED, payload: { error } });
+            }
         }
     }
 
