@@ -1,6 +1,6 @@
 import {Plugins} from "@capacitor/core";
 
-export const baseUrl = 'localhost:3000';
+export const baseUrl = '192.168.0.104:3000';
 
 export const getLogger: (tag: string) => (...args: any) => void =
     tag => (...args) => console.log(tag, ...args);

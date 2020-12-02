@@ -123,6 +123,7 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
     useEffect(getIssuesEffect, [token]);
     useEffect(wsEffect, [token]);
     useEffect(backgroundTask, [token, networkStatus.connected]);
+    useEffect(setIssues,[token,issues]);
 
     const saveIssue = useCallback<SaveIssueFn>(saveIssueCallback, [token]);
     const deleteIssue = useCallback<DeleteIssueFn>(deleteIssueCallback, [token]);
@@ -145,11 +146,13 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                console.log('useBackgroundTask - executeTask started');
 
                const ret = await Storage.get({key: "issues"});
-               if(ret.value != undefined && ret.value != 'undefined') {
+               console.log(ret.value);
+               if(ret.value != null && ret.value != 'undefined') {
                    const issues = JSON.parse(ret.value);
-                   for(let i = 0; i< issues.length; i++){
+                   for(let i = 0; i < issues.length; i++){
                        const issue = issues[i];
-                       await (issue._id.contains("saved") ? createIssue(token, issue) : updateIssue(token, issue));
+                       const id = String(issue._id);
+                       await (id.includes("saved") ? createIssue(token, issue) : updateIssue(token, issue));
                    }
                }
                console.log('useBackgroundTask - executeTask finished');
@@ -157,6 +160,13 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
            });
        }
        return;
+    }
+
+    function setIssues(){
+        setIssuesStorage()
+        async function setIssuesStorage() {
+            await Storage.set({key: "issues", value: JSON.stringify(issues)});
+        }
     }
 
     function getIssuesEffect()  {
@@ -171,7 +181,7 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
             }
             if(!networkStatus.connected){
                 const ret = await Storage.get({key: "issues"});
-                if(ret.value != undefined && ret.value != 'undefined'){
+                if(ret.value != null && ret.value != 'undefined'){
                     const issues = JSON.parse(ret.value);
                     dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
                     return;
@@ -185,13 +195,12 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                     log('fetchIssues succeeded');
                     if (!canceled) {
                         dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
-                        await Storage.set({key: "issues", value: JSON.stringify(issues)});
                     }
                 } catch (error) {
                     log('fetchIssues failed');
                     if(error.message === "Network Error"){
                         const ret = await Storage.get({key: "issues"});
-                        if(ret.value != undefined && ret.value != 'undefined'){
+                        if(ret.value != null && ret.value != 'undefined'){
                             const issues = JSON.parse(ret.value);
                             dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
                             return;
@@ -220,7 +229,6 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
             const issues = await getIssues(token, `?title=${filterString}&page=${page}`);
             log('nextPage succeeded');
             dispatch({ type: FETCH_ISSUES_SUCCEEDED, payload: { issues } });
-            await Storage.set({key: "issues", value: JSON.stringify(issues)});
         }
         catch (error) {
             log('nextPage failed');
@@ -260,7 +268,6 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                     savedLocallyNr+=1;
                 }
                 dispatch({type: SAVE_ISSUE_SUCCEEDED, payload: {issue: issue, local: true}});
-                await Storage.set({key: "issues", value: JSON.stringify(issues)});
             }
             else
                 dispatch({ type: SAVE_ISSUE_FAILED, payload: { error: new Error("Bad Request") } });
@@ -272,13 +279,15 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                 const savedIssue = await (issue._id ? updateIssue(token, issue) : createIssue(token, issue));
                 log('saveIssue succeeded');
                 dispatch({ type: SAVE_ISSUE_SUCCEEDED, payload: { issue: savedIssue, local: false } });
-                await Storage.set({key: "issues", value: JSON.stringify(issues)});
             } catch (error) {
                 log('saveIssue failed');
                 if(error.message === 'Network Error'){
                     if(issue.title) {
+                        if(!issue._id){
+                            issue._id = `saved${savedLocallyNr}`;
+                            savedLocallyNr+=1;
+                        }
                         dispatch({type: SAVE_ISSUE_SUCCEEDED, payload: {issue: issue, local: true}});
-                        await Storage.set({key: "issues", value: JSON.stringify(issues)});
                     }
                     else
                         dispatch({ type: SAVE_ISSUE_FAILED, payload: { error: new Error("Bad Request") } });
@@ -293,7 +302,6 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
         if(!networkStatus.connected){
             dispatch({ type: DELETE_ISSUE_STARTED });
             dispatch({ type: DELETE_ISSUE_SUCCEEDED, payload: { issue: issue, local: true } });
-            await Storage.set({key: "issues", value: JSON.stringify(issues)});
         }
         else{
             try {
@@ -302,12 +310,10 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                 const deleted_issue = await apideleteIssue(token, issue);
                 log('deleteIssue succeeded');
                 dispatch({ type: DELETE_ISSUE_SUCCEEDED, payload: { issue: issue, local: false} });
-                await Storage.set({key: "issues", value: JSON.stringify(issues)});
             } catch (error) {
                 log('deleteIssue failed');
                 if(error.message === "Network Error"){
                     dispatch({ type: DELETE_ISSUE_SUCCEEDED, payload: { issue: issue, local: true} });
-                    await Storage.set({key: "issues", value: JSON.stringify(issues)});
                 }
                 else
                     dispatch({ type: DELETE_ISSUE_FAILED, payload: { error } });
@@ -328,11 +334,9 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                 log(`ws message, issue ${type}`);
                 if (type === 'created' || type === 'updated') {
                     dispatch({type: SAVE_ISSUE_SUCCEEDED, payload: {issue}});
-                    Storage.set({key: "issues", value: JSON.stringify(issues)});
                 }
                 if (type === 'deleted') {
                     dispatch({type: DELETE_ISSUE_SUCCEEDED, payload: {issue}});
-                    Storage.set({key: "issues", value: JSON.stringify(issues)});
                 }
             });
         }
