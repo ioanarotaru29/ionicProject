@@ -3,4 +3,5 @@ export interface IssueProps {
     title: string;
     description: string;
     state: string;
+    version?: number;
 }

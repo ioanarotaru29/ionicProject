@@ -16,7 +16,7 @@ export const createIssue: (token: string, issue: IssueProps) => Promise<IssuePro
 }
 
 export const updateIssue: (token: string, issue: IssueProps) => Promise<IssueProps[]> = (token, issue) => {
-    return withLogs(axios.put(`${issueUrl}/${issue._id}`, issue, authConfig(token)), 'updateIssue');
+    return withLogs(axios.put(`${issueUrl}/${issue._id}`, issue, authConfig(token, issue.version)), 'updateIssue');
 }
 
 export const apideleteIssue: (token: string, issue: IssueProps) => Promise<IssueProps[]> = (token, issue) => {

@@ -41,14 +41,13 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
             setDescription(issue.description);
             setState(issue.state);
         }
-        if(usingLocal)
-            alert("Changes are saved locally");
+
 
     }, [match.params.id, issues]);
 
     const handleSave = () => {
         const editedIssue = issue ? { ...issue, title, description, state} : { title, description, state};
-        saveIssue && saveIssue(editedIssue).then(() => { history.goBack() });
+        saveIssue && saveIssue(editedIssue).then(() => { });
     };
     const handleDelete = () => {
         const editedIssue = issue ? { ...issue, title, description, state} : { title: '', description:'', state:''};

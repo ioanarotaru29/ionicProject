@@ -53,6 +53,7 @@ const FETCH_ISSUES_FAILED = 'FETCH_ISSUES_FAILED';
 const SAVE_ISSUE_STARTED = 'SAVE_ISSUE_STARTED';
 const SAVE_ISSUE_SUCCEEDED = 'SAVE_ISSUE_SUCCEEDED';
 const SAVE_ISSUE_FAILED = 'SAVE_ISSUE_FAILED';
+const SAVE_ISSUE_CONFLICT = 'SAVE_ISSUE_CONFLICT';
 const DELETE_ISSUE_STARTED = 'DELETE_ISSUE_STARTED';
 const DELETE_ISSUE_SUCCEEDED = 'DELETE_ISSUE_SUCCEEDED';
 const DELETE_ISSUE_FAILED = 'DELETE_ISSUE_FAILED';
@@ -65,16 +66,16 @@ const reducer: (state: IssuesState, action: ActionProps) => IssuesState =
                 let filter = state.filterString;
                 if(payload && payload.page)
                     pageNr = payload.page;
-                if(payload && payload.query != undefined)
+                if(payload && payload.query !== undefined)
                     filter = payload.query;
-                return { ...state, crtPage: pageNr, filterString: filter, fetching: true, fetchingError: null };
+                return { ...state, crtPage: pageNr, filterString: filter, fetching: true, fetchingError: null, usingLocal: false };
             case FETCH_ISSUES_SUCCEEDED:
                 if(state.crtPage === 1)
-                    return { ...state, issues: payload.issues, fetching: false};
+                    return { ...state, issues: payload.issues, fetching: false, usingLocal: false};
                 else
-                    return { ...state, issues: state.issues?.concat(payload.issues), fetching: false}
+                    return { ...state, issues: state.issues?.concat(payload.issues), fetching: false, usingLocal: false}
             case FETCH_ISSUES_FAILED:
-                return { ...state, fetchingError: payload.error, fetching: false };
+                return { ...state, fetchingError: payload.error, fetching: false, usingLocal: true };
             case SAVE_ISSUE_STARTED:
                 return { ...state, savingError: null, saving: true, usingLocal: false };
             case SAVE_ISSUE_SUCCEEDED:
@@ -88,7 +89,17 @@ const reducer: (state: IssuesState, action: ActionProps) => IssuesState =
                 }
                 return { ...state, issues, saving: false, usingLocal: payload.local };
             case SAVE_ISSUE_FAILED:
-                return { ...state, savingError: payload.error, saving: false };
+                return { ...state, savingConflict: false, savingError: payload.error, saving: false };
+            case SAVE_ISSUE_CONFLICT:
+                const issuesSaved = [...(state.issues || [])];
+                const issueSaved = payload.issue;
+                const i = issuesSaved.findIndex(it => it._id === issueSaved._id);
+                if (i === -1) {
+                    issuesSaved.splice(0, 0, issueSaved);
+                } else {
+                    issuesSaved[i] = issueSaved;
+                }
+                return { ...state, issues: issuesSaved, savingError: payload.error, saving: false, usingLocal: payload.local };
             case DELETE_ISSUE_STARTED:
                 return { ...state, deletingError: null, deleting: true, usingLocal: false};
             case DELETE_ISSUE_SUCCEEDED:
@@ -123,7 +134,7 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
     useEffect(getIssuesEffect, [token]);
     useEffect(wsEffect, [token]);
     useEffect(backgroundTask, [token, networkStatus.connected]);
-    useEffect(setIssues,[token,issues]);
+    useEffect(setIssues,[token, issues]);
 
     const saveIssue = useCallback<SaveIssueFn>(saveIssueCallback, [token]);
     const deleteIssue = useCallback<DeleteIssueFn>(deleteIssueCallback, [token]);
@@ -267,6 +278,9 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                     issue._id = `saved${savedLocallyNr}`;
                     savedLocallyNr+=1;
                 }
+                else{
+                    issue.version = issue.version ? issue.version +1 : 1;
+                }
                 dispatch({type: SAVE_ISSUE_SUCCEEDED, payload: {issue: issue, local: true}});
             }
             else
@@ -281,16 +295,30 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                 dispatch({ type: SAVE_ISSUE_SUCCEEDED, payload: { issue: savedIssue, local: false } });
             } catch (error) {
                 log('saveIssue failed');
+                log(error);
                 if(error.message === 'Network Error'){
                     if(issue.title) {
                         if(!issue._id){
                             issue._id = `saved${savedLocallyNr}`;
                             savedLocallyNr+=1;
                         }
+                        else{
+                            issue.version = issue.version ? issue.version +1 : 1;
+                        }
                         dispatch({type: SAVE_ISSUE_SUCCEEDED, payload: {issue: issue, local: true}});
                     }
                     else
                         dispatch({ type: SAVE_ISSUE_FAILED, payload: { error: new Error("Bad Request") } });
+                }
+                else if(error.message === "Request failed with status code 409"){
+                    alert("You have conflicts");
+                    var issueError = error.response.data.issue;
+                    issue._id = issueError._id;
+                    issue.title += " || " + issueError.title;
+                    issue.description += " || " + issueError.description;
+                    issue.state += " || " + issueError.state;
+                    issue.version = issueError.version;
+                    dispatch({ type: SAVE_ISSUE_CONFLICT, payload: { error: new Error("Version conflict"), issue: issue } });
                 }
                 else
                     dispatch({ type: SAVE_ISSUE_FAILED, payload: { error } });
