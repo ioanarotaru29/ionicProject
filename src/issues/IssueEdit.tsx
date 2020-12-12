@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, {EffectCallback, useContext, useEffect, useState} from 'react';
 import {
     IonButton,
     IonButtons,
@@ -29,6 +29,8 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
     const [state, setState] = useState('');
     const [issue, setIssue] = useState<IssueProps>();
 
+    const [goBack, setGoBack] = useState(false);
+
     const { networkStatus }  = useNetwork();
 
     useEffect(() => {
@@ -41,17 +43,29 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
             setDescription(issue.description);
             setState(issue.state);
         }
-
-
     }, [match.params.id, issues]);
 
+    useEffect(() => {
+        log('useEffect using local');
+        if(goBack && usingLocal)
+            alert("Using local storage");
+    }, [ goBack, usingLocal ])
+
+    useEffect(() => {
+        log('useEffect errors');
+        if(goBack && savingError == null && deletingError == null)
+            history.goBack();
+    }, [ goBack, savingError, deletingError])
+
     const handleSave = () => {
+        setGoBack(false);
         const editedIssue = issue ? { ...issue, title, description, state} : { title, description, state};
-        saveIssue && saveIssue(editedIssue).then(() => { });
+        saveIssue && saveIssue(editedIssue).then(() => { setGoBack(true)});
     };
     const handleDelete = () => {
+        setGoBack(false);
         const editedIssue = issue ? { ...issue, title, description, state} : { title: '', description:'', state:''};
-        deleteIssue && deleteIssue(editedIssue).then(() => { history.goBack() });
+        deleteIssue && deleteIssue(editedIssue).then(() => { setGoBack(true) });
     };
     log('render');
     return (

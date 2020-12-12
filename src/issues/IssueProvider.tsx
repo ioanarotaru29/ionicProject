@@ -314,9 +314,9 @@ export const IssueProvider: React.FC<IssueProviderProps> = ({ children }) => {
                     alert("You have conflicts");
                     var issueError = error.response.data.issue;
                     issue._id = issueError._id;
-                    issue.title += " || " + issueError.title;
-                    issue.description += " || " + issueError.description;
-                    issue.state += " || " + issueError.state;
+                    issue.title = "Old: " + issue.title + " New: " + issueError.title;
+                    issue.description = "Old: " + issue.description + " New: " + issueError.description;
+                    issue.state = "Old: " + issue.state + " New: " + issueError.state;
                     issue.version = issueError.version;
                     dispatch({ type: SAVE_ISSUE_CONFLICT, payload: { error: new Error("Version conflict"), issue: issue } });
                 }
