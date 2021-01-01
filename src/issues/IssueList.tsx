@@ -1,6 +1,7 @@
-import React, {useContext, useState} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import { RouteComponentProps} from 'react-router';
 import {
+    createAnimation,
     IonButton, IonButtons,
     IonContent,
     IonFab,
@@ -32,6 +33,20 @@ const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
 
     })
 
+    useEffect(() => {
+        const circle = document.querySelector('.circle');
+        if(circle) {
+            const animation = createAnimation()
+                // @ts-ignore
+                .addElement(circle)
+                .duration(500)
+                .fromTo('background', networkStatus.connected ? 'darkred' : 'green', networkStatus.connected ? 'green' : 'darkred')
+                .afterRemoveClass(networkStatus.connected ? 'disconnected' : 'connected')
+                .afterAddClass(networkStatus.connected ? 'connected' : 'disconnected');
+            animation.play();
+        }
+    }, [networkStatus.connected])
+
     async function searchNext($event: CustomEvent<void>) {
         log("search next")
         if (pageIssue) {
@@ -49,7 +64,7 @@ const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
             <IonHeader>
                 <IonToolbar>
                     {
-                        <div slot="start" className={`circle ${networkStatus.connected ? "connected" : "disconnected"}`} />
+                        <div slot="start" className={`circle`} />
                     }
                     <IonTitle>Issues List</IonTitle>
                     <IonButtons slot="end">

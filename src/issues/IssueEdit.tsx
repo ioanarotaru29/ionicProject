@@ -47,6 +47,20 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
     }, [match.params.id, issues]);
 
     useEffect(() => {
+        const circle = document.querySelector('.circle');
+        if(circle) {
+            const animation = createAnimation()
+                // @ts-ignore
+                .addElement(circle)
+                .duration(500)
+                .fromTo('background', networkStatus.connected ? 'darkred' : 'green', networkStatus.connected ? 'green' : 'darkred')
+                .afterRemoveClass(networkStatus.connected ? 'disconnected' : 'connected')
+                .afterAddClass(networkStatus.connected ? 'connected' : 'disconnected');
+            animation.play();
+        }
+    }, [networkStatus.connected])
+
+    useEffect(() => {
         log('useEffect using local');
         if(goBack && usingLocal)
             alert("Using local storage");
@@ -121,7 +135,7 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
             <IonHeader>
                 <IonToolbar>
                     {
-                        <div slot="start" className={`circle ${networkStatus.connected ? "connected" : "disconnected"}`}/>
+                        <div slot="start" className={`circle`}/>
                     }
                     <IonTitle>Manage</IonTitle>
                     <IonButtons slot="end">
