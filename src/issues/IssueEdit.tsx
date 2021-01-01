@@ -60,26 +60,52 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
 
     const handleSave = () => {
         setGoBack(false);
+        const title_label = document.querySelector(".title_label")
+        const state_label = document.querySelector(".state_label")
+        const animation1 = createAnimation()
+            // @ts-ignore
+            .addElement(title_label)
+            .duration(2000)
+            .keyframes([
+                {offset: 0.1, transform: 'translateX(-1px)', color: 'red'},
+                {offset: 0.2, transform: 'translateX(2px)', color: 'red'},
+                {offset: 0.3, transform: 'translateX(-4px)', color: 'red'},
+                {offset: 0.4, transform: 'translateX(4px)', color: 'red'},
+                {offset: 0.5, transform: 'translateX(-4px)', color: 'red'},
+                {offset: 0.6, transform: 'translateX(4px)', color: 'red'},
+                {offset: 0.7, transform: 'translateX(-4px)', color: 'red'},
+                {offset: 0.8, transform: 'translateX(2px)', color: 'red'},
+                {offset: 0.9, transform: 'translateX(-1px)', color: 'red'},
+            ]);
+        const animation2 = createAnimation()
+            // @ts-ignore
+            .addElement(state_label)
+            .duration(2000)
+            .keyframes([
+                {offset: 0.1, transform: 'translateX(-1px)', color: 'red'},
+                {offset: 0.2, transform: 'translateX(2px)', color: 'red'},
+                {offset: 0.3, transform: 'translateX(-4px)', color: 'red'},
+                {offset: 0.4, transform: 'translateX(4px)', color: 'red'},
+                {offset: 0.5, transform: 'translateX(-4px)', color: 'red'},
+                {offset: 0.6, transform: 'translateX(4px)', color: 'red'},
+                {offset: 0.7, transform: 'translateX(-4px)', color: 'red'},
+                {offset: 0.8, transform: 'translateX(2px)', color: 'red'},
+                {offset: 0.9, transform: 'translateX(-1px)', color: 'red'},
+            ]);
+        if(title === "" && state === ""){
+            (async () => {
+                await animation1.play();
+                await animation2.play();
+            })();
+            return ;
+        }
         if(title === ""){
-            const title_label = document.querySelector(".title_label")
-            if(title_label){
-                const animation = createAnimation()
-                    .addElement(title_label)
-                    .duration(2000)
-                    .keyframes([
-                        {offset: 0.1, transform: 'translateX(-1px)', color: 'red'},
-                        {offset: 0.2, transform: 'translateX(2px)', color: 'red'},
-                        {offset: 0.3, transform: 'translateX(-4px)', color: 'red'},
-                        {offset: 0.4, transform: 'translateX(4px)', color: 'red'},
-                        {offset: 0.5, transform: 'translateX(-4px)', color: 'red'},
-                        {offset: 0.6, transform: 'translateX(4px)', color: 'red'},
-                        {offset: 0.7, transform: 'translateX(-4px)', color: 'red'},
-                        {offset: 0.8, transform: 'translateX(2px)', color: 'red'},
-                        {offset: 0.9, transform: 'translateX(-1px)', color: 'red'},
-                    ]);
-                animation.play();
-                return;
-            }
+            animation1.play();
+            return;
+        }
+        if(state === ""){
+            animation2.play();
+            return;
         }
         const editedIssue = issue ? { ...issue, title, description, state} : { title, description, state};
         saveIssue && saveIssue(editedIssue).then(() => { setGoBack(true)});
@@ -127,7 +153,7 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
                     <IonTextarea rows={5} value={description} onIonChange={e => setDescription(e.detail.value || '')} />
                 </IonItem>
                 <IonItem>
-                    <IonLabel position="stacked">State</IonLabel>
+                    <IonLabel position="stacked" className={"state_label"}>State</IonLabel>
                     <IonInput value={state} onIonChange={e => setState(e.detail.value || '')} />
                 </IonItem>
                 <IonLoading isOpen={saving} />
