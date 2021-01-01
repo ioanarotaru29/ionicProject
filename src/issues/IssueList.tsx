@@ -59,6 +59,30 @@ const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
         Storage.clear();
         window.location.reload();
     }
+
+    const enterAnimation = (baseEl: any) => {
+        const backdropAnimation = createAnimation()
+            .addElement(baseEl.querySelector('ion-backdrop')!)
+            .fromTo('opacity', '0.01', 'var(--backdrop-opacity)');
+
+        const wrapperAnimation = createAnimation()
+            .addElement(baseEl.querySelector('.loading-wrapper')!)
+            .keyframes([
+                { offset: 0, opacity: '0', transform: 'scale(0) translateY(150px) rotateX(180deg)' },
+                { offset: 1, opacity: '1', transform: 'scale(1) translateY(0px) rotateX(0deg)' }
+            ]);
+
+        return createAnimation()
+            .addElement(baseEl)
+            .easing('ease-in-out')
+            .duration(1000)
+            .addAnimation([backdropAnimation, wrapperAnimation]);
+    }
+
+    const leaveAnimation = (baseEl: any) => {
+        return enterAnimation(baseEl).direction('reverse');
+    }
+
     return (
         <IonPage>
             <IonHeader>
@@ -80,7 +104,7 @@ const IssueList: React.FC<RouteComponentProps> = ({ history }) => {
                     disabled={!networkStatus.connected}
                     onIonChange={e => filterIssue && filterIssue(e.detail.value!) && setDisableInfiniteScroll(false)}>
                 </IonSearchbar>
-                <IonLoading isOpen={fetching} message="Fetching issues" />
+                <IonLoading enterAnimation={ enterAnimation} leaveAnimation={leaveAnimation} isOpen={fetching} message="Fetching issues" />
                 {issues && (
                     <IonList>
                         {issues.map(({ _id, title, description,state}) =>
