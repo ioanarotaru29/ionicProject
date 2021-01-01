@@ -8,7 +8,8 @@ import {
     IonLoading,
     IonPage, IonTextarea,
     IonTitle,
-    IonToolbar
+    IonToolbar,
+    createAnimation
 } from '@ionic/react';
 import { getLogger } from '../core';
 import { IssueContext } from './IssueProvider';
@@ -59,6 +60,27 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
 
     const handleSave = () => {
         setGoBack(false);
+        if(title === ""){
+            const title_label = document.querySelector(".title_label")
+            if(title_label){
+                const animation = createAnimation()
+                    .addElement(title_label)
+                    .duration(2000)
+                    .keyframes([
+                        {offset: 0.1, transform: 'translateX(-1px)', color: 'red'},
+                        {offset: 0.2, transform: 'translateX(2px)', color: 'red'},
+                        {offset: 0.3, transform: 'translateX(-4px)', color: 'red'},
+                        {offset: 0.4, transform: 'translateX(4px)', color: 'red'},
+                        {offset: 0.5, transform: 'translateX(-4px)', color: 'red'},
+                        {offset: 0.6, transform: 'translateX(4px)', color: 'red'},
+                        {offset: 0.7, transform: 'translateX(-4px)', color: 'red'},
+                        {offset: 0.8, transform: 'translateX(2px)', color: 'red'},
+                        {offset: 0.9, transform: 'translateX(-1px)', color: 'red'},
+                    ]);
+                animation.play();
+                return;
+            }
+        }
         const editedIssue = issue ? { ...issue, title, description, state} : { title, description, state};
         saveIssue && saveIssue(editedIssue).then(() => { setGoBack(true)});
     };
@@ -97,7 +119,7 @@ const IssueEdit: React.FC<IssueEditProps> = ({ history, match }) => {
             </IonHeader>
             <IonContent>
                 <IonItem>
-                    <IonLabel position="stacked">Title</IonLabel>
+                    <IonLabel position="stacked" className={"title_label"}>Title</IonLabel>
                     <IonInput value={title} onIonChange={e => setTitle(e.detail.value || '')} />
                 </IonItem>
                 <IonItem>
